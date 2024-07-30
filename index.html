@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作日程</title>
+</head>
+<body>
+    <div class="main-content">
+        <div class="show-date">
+            <div class="now-time"></div>
+        </div>
+        <div class="vm-table">
+            <div class="week-head">
+                <div class="vm-td">周一</div>
+                <div class="vm-td">周二</div>
+                <div class="vm-td">周三</div>
+                <div class="vm-td">周四</div>
+                <div class="vm-td">周五</div>
+                <div class="vm-td" style="color:#666">周六</div>
+                <div class="vm-td" style="color:#666">周日</div>
+            </div>
+
+            <div class="month-day">
+                
+            </div>
+        </div>    
+        <div class="task-switch">
+            <div class="task-todo task-tab-select">待完成</div>
+            <div class="task-ok">已完成</div>
+        </div>
+        <div class="task-list"></div>   
+    </div>
+    <div class="export-or-import">
+        <div class="import-btn">导入CSV</div>
+        <div class="export-btn">导出CSV</div>
+        <input type="file" style="display: none" id="importCSV" accept=".json">
+    </div>
+    <div class="dialog-layer">
+        <div class="my-dialog">
+            <div class="dialog-title">查看/编辑任务</div>
+            <textarea class="dialog-content">内容</textarea>
+            <div class="dialog-btn func-del">删除</div>
+            <div class="dialog-btn func-cancel">取消</div>
+            <div class="dialog-btn func-save">保存</div>
+        </div>
+    </div>
+</body>
+<script>
+window.onload = function(){
+    function nowTime(){
+        let d = new Date();
+        let ele = document.getElementsByClassName('now-time')[0];
+        ele.innerHTML = d.toLocaleString().substring(0,15);
+        setInterval(()=>{
+            ele.innerHTML = (new Date()).toLocaleString().substring(0,15);
+        },10000);
+    }
+    function makeCalendar(){
+        document.getElementsByClassName('month-day')[0].innerHTML = '';
+        let d = new Date();
+        let y = d.getFullYear(); 
+        let m = d.getMonth() + 1; 
+        let last_day = ['1', new Date(y, m, 0).getDate(), d.getDate()][1]-0;
+        let today = d.getDate();
+        let arr = [];
+        let first_day_week = (new Date(y+'-'+m+'-01')).getDay()-0;  //当月1号是星期几
+        if(first_day_week==0){
+            first_day_week = 7; //week为0是星期天
+        }
+        if(first_day_week-0>1){
+            for(let i=0; i<first_day_week; i++){
+                // 排除上个月的日期并占位
+                arr.push({id:'not-day'+parseInt(Math.random()*100), today:false, flag:''});
+            }
+        }
+        let is_today = '';
+        for(let i=1; i<=last_day; i++){
+            is_today = i==today? 'is-today' : null;
+            createDayBox({id:i, today:is_today, flag:'task-day' })
+        }
+    }
+
+    function showTaskList(){
+        let task_data = getTaskList();
+        document.getElementsByClassName("task-list")[0].innerHTML = '';
+        var idx=0;
+        var filter_done = localStorage.getItem('task-tab-flag') || 'task-todo';
+
+        //tab切换
+        document.getElementsByClassName("task-tab-select")[0].classList.remove('task-tab-select');
+        document.getElementsByClassName(filter_done)[0].classList.add('task-tab-select');
+        
+        for(let idx in task_data){
+            var task = task_data[idx];
+            if(filter_done=='task-ok' && task.status-0<1){
+                continue;
+            }
+
+            if(filter_done=='task-todo' && task.status-0>0){
+                continue;
+            }
+            var div = document.createElement('div');
+            var done = task.status-0>0? 'task-done-yes':'';
+            div.classList.add("task-row");
+            div.setAttribute('data', idx);
+            div.innerHTML = `<span class="task-date">【${task.day}】: &nbsp;</span>
+                            <span class="task-txt" id="taskid-${idx}">${task.content}</span>
+                            <div class="task-done ${done}" title="完成">&nbsp✓</div>
+                            `;
+            // idx++;
+            document.getElementsByClassName("task-list")[0].append(div);
+            div.onclick = function(e){
+                console.log(e.target)
+                // 任务完成或者取消完成
+                if(e.target.className.indexOf('task-done')>-1){
+                    let id = e.target.parentNode.getAttribute('data')-0;
+                    let task = getWorkItem(id);
+                    task.status = task.status-0==1? 0 : 1;
+                    task.idx = id;
+                    // console.log(task);
+                    setWorkItem(task);
+                    return false;
+                }
+
+                showDialog(e.target);
+            }
+        }
+    }
+
+    function showDialog(item){
+        let id = item.id || item.getElementsByClassName('task-txt')[0].id;
+        id = id.replace('taskid-','')-0;
+        let layer = document.getElementsByClassName("dialog-layer")[0];
+        layer.style.display = "block";
+        layer.id = 'task'+id;
+        let task = getWorkItem(id);
+        document.getElementsByClassName("dialog-content")[0].value = task.content;
+    }
+
+    function hideDialog(){
+        document.getElementsByClassName("dialog-layer")[0].style.display = "none";
+    }
+
+    function createDayBox(attr){
+        let ele = document.getElementsByClassName('month-day')[0];
+        let tab = document.createElement('div');        
+        tab.id = attr.id;
+        tab.innerHTML = attr.id;
+        tab.className = 'day-item';
+        tab.classList.add("vm-td");
+        if(attr.today){
+            tab.classList.add(attr.today);
+        }
+        ele.append(tab);
+
+        tab.onclick = function(e){
+            if(e.target.id-0<1){
+                return false;
+            }
+            let d = new Date();
+            let y = d.getFullYear(); 
+            let m = d.getMonth() + 1; 
+            let day = d.getDate();
+            if(e.target.id-0 > day){
+                return false;
+            }
+
+            let content = prompt("请输入工作内容");
+            if(!content || content.trim().length<2){
+                return false;
+            }
+            
+            let today = y+'-'+m+'-'+e.target.id;
+            let tag = "未分类";
+            let status = 0; //0未完成 1已完成
+            setWorkItem({day:today, content: content, tag:tag, status: status});
+        }
+    }
+
+    function setWorkItem(task){
+        let json_str = localStorage.getItem('task_list');
+        if(!json_str){
+            json_str = '[]';
+        }
+        let idx = task.idx-0;
+        try{
+            let arr = JSON.parse(json_str);
+            if(idx>=0){
+                arr[idx] = task;
+            }else{
+                arr.push(task);    
+            }
+            localStorage.setItem('task_list', JSON.stringify(arr));
+        }catch(e){
+            console.log(e)
+        }
+        showTaskList();
+    }
+
+    function getWorkItem(idx){
+        let arr = getTaskList();
+        return arr[idx];
+    }
+
+    function getTaskList(){
+        let json_str = localStorage.getItem('task_list');
+        try{
+            let arr = JSON.parse(json_str);
+            for(let list of arr){
+                var dd = list.day.split('-');
+                if( document.getElementById(dd[dd.length-1]) ){
+                    document.getElementById(dd[dd.length-1]).classList.add("work-day");
+                }
+            }
+            return arr;
+        }catch(e){
+            return [];
+        }
+    }
+
+    function delTask(idx){
+        let arr = getTaskList();
+        arr.splice(idx,1);
+        console.log(idx);
+        localStorage.setItem('task_list', JSON.stringify(arr));
+        showTaskList();
+    }
+
+    function exportTask(){
+        let d = new Date();
+        var filename = document.title+'-'+d.getTime()+'.json';            
+        var link = document.createElement('a');
+        link.id = "download_json";
+        link.style.display = "none";
+        mimeType = 'text/json';
+        var json = JSON.stringify(JSON.parse(localStorage.task_list), null, 4);
+        var text = 'data:' + mimeType + ';charset=utf-8,' + encodeURIComponent(json);
+        link.setAttribute('download', filename);
+        link.setAttribute('href', text);
+        link.click();
+        link.remove();
+    }
+
+    document.getElementsByClassName("dialog-layer")[0].onclick = function(e){
+        let classname = e.target.className;
+        if(classname.indexOf('dialog-btn')==-1 && classname!='dialog-layer'){
+            return false;
+        }
+        let getContent = document.getElementsByClassName('dialog-content')[0];
+        let idx = document.getElementsByClassName('dialog-layer')[0].id;
+        idx = idx.replace('task','')-0;
+
+        //删除任务
+        if(classname.indexOf('func-del')>-1){
+            delTask(idx);
+        }
+
+        //保存任务
+        if(classname.indexOf('func-save')>-1){
+            let task = getWorkItem(idx);
+            if(!task || !task.content){
+                return false;
+            }
+            
+            if(getContent.value.trim().length<2){
+                return false;
+            }
+            task.content = getContent.value;
+            task.idx = idx;
+            setWorkItem(task);
+        }
+        hideDialog();
+    }
+
+    document.getElementsByClassName("task-switch")[0].onclick = function(e){
+        let cname = e.target.className;
+        if(cname.indexOf('task-todo')>-1 || cname.indexOf('task-ok')>-1){
+            localStorage.setItem('task-tab-flag', e.target.classList[0]);
+            showTaskList();
+        }
+    }
+
+    document.getElementsByClassName('export-btn')[0].onclick = function(){
+        exportTask();
+    }
+
+    document.getElementsByClassName('import-btn')[0].onclick = function(){
+        document.getElementById('importCSV').click();
+    }
+
+    document.getElementById('importCSV').onchange = function(e){
+        const reader = new FileReader();
+        reader.readAsText(e.target.files[0]);
+         reader.onload = function(f){
+            let json_str = f.target.result;
+            try{
+                let arr = JSON.parse(json_str);
+                let res = [];
+                for(let list of arr){
+                    setWorkItem({
+                        content: list.content,
+                        day: list.day,
+                        status: list.status,
+                        tag: list.tag
+                    })
+                }
+                alert('导入成功!');
+            }catch(e){}
+        }
+    }
+
+    makeCalendar();
+    showTaskList();
+    nowTime();
+}
+</script>
+<style>
+    body{
+        margin-top: 0;
+    }
+    .show-date{
+        text-align: center;
+        min-width: 780px;
+        height: 66px;
+        line-height: 66px;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #555;
+    }
+    .vm-table{
+        width: 50%;
+        min-width: 780px;
+        min-height: 480px;
+        background: #eee;
+        max-width: 900px;
+        margin: 0px auto;
+        padding-top: 30px;
+        border-radius: 15px;
+        font-size: 18px;
+        font-weight: 600;
+        user-select: none;
+        box-shadow: 1px 1px 5px;
+    }
+    .week-head{
+        width: 100%;
+        color: #000;
+    }
+    .month-day{
+        color: #666;
+    }
+
+    .vm-td{
+        width: 13%;
+        line-height: 60px;
+        margin: 5px;
+        float: left;
+        text-align: center;
+    }
+    .day-item{
+        cursor: pointer;
+    }
+    .day-item:hover{
+        background: #ffa50091;
+        border-radius: 15px;
+    }
+    .is-today{
+        color: green;
+        text-decoration: underline;
+    }
+    .task-list{
+        width: 800px;
+        line-height: 40px;
+        margin: 0 auto;
+        text-align: left;
+        cursor: pointer; 
+        margin-bottom: 100px;
+    }
+    .task-row{
+        border-bottom: 1px dashed #666;
+        background: #eee;
+    }
+    .task-row:hover{
+        color: orange;
+    }
+
+    .task-date{
+        user-select: none;
+    }
+    .work-day{
+        background: #fbd;
+        border-radius: 15px;
+    }
+    .dialog-layer{
+        display: none;
+        position: fixed;
+        z-index: 999;
+        width: 100%;
+        height: 100vh;
+        background: #0c0c0c9e;
+        top: 0;
+        left: 0;
+    }
+    .my-dialog{
+        width: 550px;
+        height: 400px;
+        background: #eee;
+        margin: 20vh auto;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        display: flex;
+        flex-flow: wrap;
+        justify-content: center;
+    }
+    .dialog-title{
+        text-align: center;
+        line-height: 50px;
+        font-weight: 600;
+    }
+    .dialog-content{
+        width: 90%;
+        height: 25vh;
+        margin: 20px;
+        color: #333;
+        font-size: 16px;
+        text-decoration: none;
+        border: none;
+    }
+    .dialog-btn{
+        width: 20%;
+        height: 40px;
+        line-height: 40px;
+        text-align: center;
+        float: left;        
+        bottom: 20px;
+        margin: 0px 2%;
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+    }
+    .func-del{
+        background: #f53b42;
+    }
+    .func-cancel{
+        background: #bbb;
+    }
+    .func-save{
+        background: #03a9f4;
+    }
+    .task-done{
+        width: 30px;
+        height: 28px;
+        border: 1px solid #bbb;
+        float: right;
+        margin-top: 5px;
+        background: #eee;
+        color: #eee;
+        user-select: none;
+    }
+    .task-done:hover{
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: green;
+        padding-bottom: 5px;
+    }
+
+    .task-done-yes{
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: green;
+        padding-bottom: 5px;
+    }
+
+    .task-switch{
+        display: flex;
+        justify-content: center;
+        line-height: 40px;
+    }
+    .task-todo, .task-ok{
+        width: 80px;
+        margin: 10px;
+        margin-bottom: 20px;
+        text-align: center;
+        border-bottom: 1px solid #ccc;
+        font-size: 1.1rem;
+        cursor: pointer;
+        user-select: none;
+    }
+    .task-tab-select{
+        font-weight: 600;
+        border-bottom: 4px solid green;
+    }
+
+    .export-or-import{
+        display: none;
+    }
+    @media (min-width: 1080px){
+        .export-or-import{
+            display: block;
+            width: 95%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            text-align: right;
+        }
+    }
+    .import-btn, .export-btn{
+        width: 100px;
+        height: 35px;
+        line-height: 35px;
+        float: right;
+        margin: 35px 10px;
+        text-align: center;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: .9rem;
+        color: #333;
+    }
+    .export-btn{
+        border: 1px solid #5cb75c;
+    }
+    .import-btn{
+        border: 1px solid #cb5b5b;
+    }
+
+    .export-btn:hover{
+        background: #5cb75c;
+        color: white;
+    }
+    .import-btn:hover{
+        background: #cb5b5b;
+        color: white;
+    }
+</style>
+</html>
