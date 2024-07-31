@@ -42,6 +42,15 @@
         <div class="my-dialog">
             <div class="dialog-title">查看/编辑任务</div>
             <textarea class="dialog-content">内容</textarea>
+            <div class="task-tags">
+                <div class="tag-title">任务标签:</div>
+                <input class="select-tag" maxlength="12" placeholder="请选择或输入tag" />
+                <select name="" id="tag-list">
+                    <option class="default-opt" value="未分类">未分类</option>
+                    <option class="default-opt" value="普通任务">普通任务</option>
+                    <option class="default-opt" value="加急任务">加急任务</option>
+                </select>
+            </div>
             <div class="dialog-btn func-del">删除</div>
             <div class="dialog-btn func-cancel">取消</div>
             <div class="dialog-btn func-save">保存</div>
@@ -110,27 +119,27 @@ window.onload = function(){
             var done = task.status-0>0? 'task-done-yes':'';
             div.classList.add("task-row");
             div.setAttribute('data', idx);
+            var tag_color = task.tag=='未分类'? 'set-gray' : 'set-colour';
             div.innerHTML = `<span class="task-date">【${task.day}】: &nbsp;</span>
                             <span class="task-txt" id="taskid-${idx}">${task.content}</span>
                             <div class="task-done ${done}" title="完成">&nbsp✓</div>
+                            <div class="task-tag ${tag_color}">${task.tag}</div>
                             `;
-            // idx++;
             document.getElementsByClassName("task-list")[0].append(div);
             div.onclick = function(e){
-                console.log(e.target)
                 // 任务完成或者取消完成
                 if(e.target.className.indexOf('task-done')>-1){
                     let id = e.target.parentNode.getAttribute('data')-0;
                     let task = getWorkItem(id);
                     task.status = task.status-0==1? 0 : 1;
                     task.idx = id;
-                    // console.log(task);
                     setWorkItem(task);
                     return false;
                 }
 
                 showDialog(e.target);
             }
+            document.getElementsByClassName('select-tag')[0].value = task.tag;
         }
     }
 
@@ -142,6 +151,7 @@ window.onload = function(){
         layer.id = 'task'+id;
         let task = getWorkItem(id);
         document.getElementsByClassName("dialog-content")[0].value = task.content;
+        showTagList();
     }
 
     function hideDialog(){
@@ -248,6 +258,64 @@ window.onload = function(){
         link.remove();
     }
 
+    function tagList(){
+        let json_str = localStorage.getItem('task_tag_list') || '[]';
+        try{
+            return JSON.parse(json_str);
+        }catch(e){
+            return [];
+        }
+    }
+
+    function addTag(tag){
+        tag = tag.trim();
+        if(tag.length=='' || tag.length>12){
+            return false;
+        }
+        let default_opt = {'未分类':0,'普通任务':1,'加急任务':2};
+        if(default_opt.hasOwnProperty(tag)){
+            return false;
+        }
+        let arr = tagList();
+        arr.push(tag);
+        let uniqueArr = Array.from(new Set(arr));
+        localStorage.setItem('task_tag_list', JSON.stringify(uniqueArr));
+        return tag;
+    }
+
+    function delTag(tag){
+        if(tag.trim()==''){
+            return false;
+        }
+        let arr = tagList();
+        for(let i in arr){
+            if(arr[i]==tag){
+                arr.split(i,1);
+                break;
+            }
+        }
+        localStorage.setItem('task_tag_list', JSON.stringify(arr));
+        return tag;
+    }
+
+    function showTagList(){
+        let ele = document.getElementById('tag-list');
+        let tag_list = tagList();
+        if(tag_list.length==0){
+            return false;
+        }
+        for(let c of ele.children){
+            if(c.className!='default-opt'){
+                c.remove();
+            }
+        } 
+        for(let tag of tag_list){
+            let opt = document.createElement('option');
+            opt.value = tag;
+            opt.innerHTML = tag;
+        }
+    }
+
     document.getElementsByClassName("dialog-layer")[0].onclick = function(e){
         let classname = e.target.className;
         if(classname.indexOf('dialog-btn')==-1 && classname!='dialog-layer'){
@@ -274,7 +342,9 @@ window.onload = function(){
             }
             task.content = getContent.value;
             task.idx = idx;
+            task.tag = document.getElementsByClassName('select-tag')[0].value.trim() || '未分类';
             setWorkItem(task);
+            addTag(task.tag);
         }
         hideDialog();
     }
@@ -316,9 +386,14 @@ window.onload = function(){
         }
     }
 
+    document.getElementById('tag-list').onchange = function(e){
+        document.getElementsByClassName('select-tag')[0].value = e.target.value;
+    }
+
     makeCalendar();
     showTaskList();
     nowTime();
+    // showTagList();
 }
 </script>
 <style>
@@ -427,12 +502,17 @@ window.onload = function(){
     }
     .dialog-content{
         width: 90%;
-        height: 25vh;
+        height: 18vh;
+        line-height: 28px;
         margin: 20px;
         color: #333;
         font-size: 16px;
         text-decoration: none;
-        border: none;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        outline: none;
+        text-indent: 4px;
+        padding: 10px;
     }
     .dialog-btn{
         width: 20%;
@@ -538,6 +618,61 @@ window.onload = function(){
     .import-btn:hover{
         background: #cb5b5b;
         color: white;
+    }
+    .task-tags{
+        width: 100%;
+        display: flex;
+        flex-flow: wrap;
+        justify-content: center;
+        margin: 10px auto;
+    }
+    .tag-title{
+        height: 32px;
+        line-height: 32px;
+        font-size: 1rem;
+        font-style: italic;
+    }
+    #tag-list{
+        height: 35px;
+        width: 100px;
+        padding: 5px;
+        border-radius: 4px;
+        text-decoration: none;
+        border: 1px solid #ccc;
+        outline: none;
+    }
+    .select-tag{
+        width: 160px;
+        height: 32px;
+        border-bottom: 1px solid #ccc;
+        border-top: 0;
+        border-right: 0;
+        border-left: 0;
+        text-align: center;
+        margin: 0 20px;
+        outline: none;
+        color: #333;
+        font-size: .9rem;
+        font-weight: 600;
+    }
+    .task-tag{
+        width: 100px;
+        height: 30px;
+        line-height: 30px;
+        text-align: center;
+        background: #bbb;
+        font-size: 12px;
+        margin: 6px;
+        border-radius: 12px;
+        overflow: hidden;
+        color: #fff;
+        position: absolute;
+        left: 62%;
+        margin-top: -35px;
+        z-index: 999;
+    }
+    .set-colour{
+        background: #4cc0cf;
     }
 </style>
 </html>
