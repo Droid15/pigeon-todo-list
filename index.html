@@ -300,15 +300,16 @@ window.onload = function(){
 
     function showTagList(){
         let ele = document.getElementById('tag-list');
-        let tag_list = tagList();
-        if(tag_list.length==0){
-            return false;
-        }
         ele.innerHTML = `
             <option class="default-opt" value="未分类">未分类</option>
             <option class="default-opt" value="普通任务">普通任务</option>
             <option class="default-opt" value="加急任务">加急任务</option>
         `;
+        let tag_list = tagList();
+        if(tag_list.length==0){
+            return false;
+        }
+
         for(let tag of tag_list){
             let opt = document.createElement('option');
             opt.value = tag;
