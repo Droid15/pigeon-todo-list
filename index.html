@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工作日程</title>
+    <title>鸽子日程</title>
+    <meta name="keywords" content="鸽子日程,TODO-list,日程管理,极简日程管理" />
+    <meta name="description" content="鸽子日程，极简的工作日程管理工具。纯原生开发，免联网免登录注册，支持json格式日程数据导入导出。" />
 </head>
 <body>
     <div class="main-content">
@@ -51,9 +53,13 @@ window.onload = function(){
     function nowTime(){
         let d = new Date();
         let ele = document.getElementsByClassName('now-time')[0];
-        ele.innerHTML = d.toLocaleString().substring(0,15);
+        let time_arr = d.toLocaleString().split(':');
+        time_arr.pop();
+        ele.innerHTML = time_arr.join(':');
         setInterval(()=>{
-            ele.innerHTML = (new Date()).toLocaleString().substring(0,15);
+            var arr = (new Date()).toLocaleString().split(':');
+            arr.pop();
+            ele.innerHTML = arr.join(':');
         },10000);
     }
     function makeCalendar(){
