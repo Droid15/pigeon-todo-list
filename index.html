@@ -46,9 +46,6 @@
                 <div class="tag-title">任务标签:</div>
                 <input class="select-tag" maxlength="12" placeholder="请选择或输入tag" />
                 <select name="" id="tag-list">
-                    <option class="default-opt" value="未分类">未分类</option>
-                    <option class="default-opt" value="普通任务">普通任务</option>
-                    <option class="default-opt" value="加急任务">加急任务</option>
                 </select>
             </div>
             <div class="dialog-btn func-del">删除</div>
@@ -278,6 +275,9 @@ window.onload = function(){
         }
         let arr = tagList();
         arr.push(tag);
+        if(arr.length>15){
+            arr.shift();
+        }
         let uniqueArr = Array.from(new Set(arr));
         localStorage.setItem('task_tag_list', JSON.stringify(uniqueArr));
         return tag;
@@ -304,15 +304,16 @@ window.onload = function(){
         if(tag_list.length==0){
             return false;
         }
-        for(let c of ele.children){
-            if(c.className!='default-opt'){
-                c.remove();
-            }
-        } 
+        ele.innerHTML = `
+            <option class="default-opt" value="未分类">未分类</option>
+            <option class="default-opt" value="普通任务">普通任务</option>
+            <option class="default-opt" value="加急任务">加急任务</option>
+        `;
         for(let tag of tag_list){
             let opt = document.createElement('option');
             opt.value = tag;
             opt.innerHTML = tag;
+            ele.append(opt);
         }
     }
 
