@@ -81,9 +81,10 @@ window.onload = function(){
             first_day_week = 7; //week为0是星期天
         }
         if(first_day_week-0>1){
-            for(let i=0; i<first_day_week; i++){
+            for(let i=1; i<first_day_week; i++){
                 // 排除上个月的日期并占位
                 arr.push({id:'not-day'+parseInt(Math.random()*100), today:false, flag:''});
+                createDayBox({id:'',id_class:'not-day'+parseInt(Math.random()*100), today:false, flag:''});
             }
         }
         let is_today = '';
@@ -219,10 +220,16 @@ window.onload = function(){
     function getTaskList(){
         let json_str = localStorage.getItem('task_list');
         try{
+            let d = new Date();
+            let y = d.getFullYear(); 
+            let m = d.getMonth() + 1; 
+            // let day = d.getDate();
+            let yyyym = y+'-'+m;
             let arr = JSON.parse(json_str);
             for(let list of arr){
+                // console.log(list.day)
                 var dd = list.day.split('-');
-                if( document.getElementById(dd[dd.length-1]) ){
+                if(dd[0]+'-'+dd[1] == yyyym && document.getElementById(dd[dd.length-1]) ){
                     document.getElementById(dd[dd.length-1]).classList.add("work-day");
                 }
             }
